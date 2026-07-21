@@ -78,12 +78,22 @@ URL: {item.get("link", "")}
 Linked resource content (README / transcript / paper / PDF — may be empty):
 {resource_text[:6000]}
 
+IMPORTANT — poster vs. creator/winner: LinkedIn posts are sometimes reposts or
+"top project" highlights where the account that posted (often a founder or
+instructor) is NOT the person who built or won the project. The real creator/
+winner is usually named inside the text, frequently as a name followed by a role
+(e.g. "Jane Doe. Engineering Manager @ Acme ... My capstone project won 1st
+Prize..."). When that happens, credit the actual creator/winner, not the reposter.
+
 Fields:
-- author: who wrote/owns it (a person's name if visible; else "Unknown")
+- author: the person who actually created or won the thing described. If the post
+  is a repost/highlight, use the creator/winner named inside the body — not the
+  account that posted it. Otherwise use the poster. Use "Unknown" if unclear.
 - topic: main topic in 1-5 words
 - community: "aiengg" or "ebpf" based on content
-- summary: 3-5 sentences. Use the linked resource content when present to
-  describe what the project/paper/video actually does. Keep concrete names.
+- summary: 3-5 sentences. If it is a repost/highlight, say so and name both the
+  poster and the real creator/winner. Use the linked resource content when present
+  to describe what the project/paper/video actually does. Keep concrete names.
 - tags: list of 3-5 tags
 - url: the URL above
 - date: YYYY-MM-DD if visible, else "unknown"
