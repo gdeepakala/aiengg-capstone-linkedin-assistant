@@ -107,6 +107,8 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 
 **Key finding:** Retrieval is not the bottleneck — P@3 ≈ 0.90 for both baseline and RAG. Answer quality tracks source depth: GitHub README / full web page → 5/5; targeted query with specific phrase → 5/5; generic Serper snippet → 1–3/5. The system's ceiling is content depth, not retrieval accuracy.
 
+**Justified final choice:** The full pipeline is chosen over keyword and vanilla RAG because P@3 alone cannot distinguish answer quality — both simpler approaches retrieve the right documents but return raw text the user must interpret themselves. The LLM answer generation step synthesizes, cites sources, and handles the case where the answer is absent ("I couldn't find any posts about Rust") rather than returning irrelevant documents silently.
+
 **LLM-as-judge limitation:** Judge model (gpt-5.4-mini) is the same family as the answering model. Per arXiv:2502.04313, same-family judges exhibit self-enhancement bias. A production eval would use a different model family as judge.
 
 ---
@@ -135,6 +137,22 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 | Cross-post synthesis | Answer spans multiple posts; top-1 retrieved | Increase n_results; merge on aggregation signals |
 | Instructor attribution | Role detail in low-ranked post | Extract role fields as explicit metadata |
 | Thin snippet answers | No linked repo in post | Auto-search per author for GitHub repo |
+
+---
+
+## Future Work
+
+The current ingestion pipeline makes a single Serper pass — fixed steps, Python in control. The natural next step is an **agentic ingestion loop** where the LLM decides what to fetch next based on what it just found:
+
+1. Search `site:linkedin.com "isovalent" ebpf` → get 10 posts
+2. One post links to a YouTube talk → fetch transcript
+3. Transcript mentions a paper → fetch abstract
+4. Abstract cites a GitHub repo → fetch README
+5. LLM judges: "enough context" → stop
+
+With this pattern, a single query compounds into a deep knowledge base automatically. The user gives one seed query and gets back a rich, interconnected corpus — no manual ingestion of targeted queries needed.
+
+This is the key architectural difference between a **pipeline** (what we built) and an **agent** (what comes next). The pipeline is predictable and debuggable; the agent is more powerful but harder to control. For a personal knowledge base at this scale, the pipeline was the right starting point.
 
 ---
 
