@@ -56,6 +56,22 @@ Create `.env`:
 OPENAI_API_KEY=...
 SERPER_API_KEY=...
 ```
+## Getting API Keys
+
+**OpenAI API Key**
+1. Go to platform.openai.com → API Keys → Create new secret key
+2. Add to `.env` as `OPENAI_API_KEY=sk-...`
+
+**Serper API Key**
+1. Go to serper.dev → Sign up (free tier: 2,500 searches)
+2. Dashboard → API Key → copy
+3. Add to `.env` as `SERPER_API_KEY=...`
+
+Your `.env` file should look like:
+```
+OPENAI_API_KEY=sk-...
+SERPER_API_KEY=...
+```
 
 Run:
 ```bash
@@ -97,6 +113,10 @@ Run evals:
 ```bash
 python evals/run_evals.py
 ```
+
+**Why some questions score 5/5:** The highest-scoring answers came from directly ingested resources — the ReconAI GitHub README (~50K chars, fetched automatically when its link appeared in search results) and the ebpf.io what-is-ebpf page (22K chars, ingested via option 3). Questions backed by these rich documents scored 5/5. Questions relying only on Serper search snippets (150–300 chars) scored 1–2/5.
+
+**Direct resource ingestion (option 3)** accepts GitHub repos, YouTube videos, arXiv papers, PDFs, and web pages — and is the highest-leverage way to improve answer quality for a specific topic.
 
 ---
 
