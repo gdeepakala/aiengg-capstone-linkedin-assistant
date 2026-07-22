@@ -1,0 +1,42 @@
+[
+  {
+    "question": "Who won 1st prize in the AIEngg cohort capstone?",
+    "expected": "Lavanya Mothilal"
+  },
+  {
+    "question": "What did Lavanya Mothilal build for her capstone?",
+    "expected": "A family financial tracker that consolidates income and expense data from multiple sources into Google Sheets, categorizes transactions using deterministic rules, and answers natural-language questions through a tool-using LLM agent."
+  },
+  {
+    "question": "What did Prabrisha Chattopadhyay build for her capstone?",
+    "expected": "An Autonomous Job Application Agent, recognized among the top 10 projects in the AIEngg cohort capstone."
+  },
+  {
+    "question": "Who won the India AI Hackathon 2026 and what did they build?",
+    "expected": "Ambar Kashyap won with KaviCare — a health memory assistant that stores prescriptions, lab reports, and vitals in one place, lets patients talk to their health record in 7 Indian languages, and generates pre-visit summaries for doctor visits."
+  },
+  {
+    "question": "Who judged the India AI Hackathon 2026?",
+    "expected": "Gaurav Sen, Tanishq Singh, Dr Inayath ullah G., Vipul Nath Jindal, Ayush Mittal, Ashish Vasava, Sunil Goel."
+  },
+  {
+    "question": "What architecture does ReconAI use?",
+    "expected": "LangGraph-based deterministic orchestrator with specialized agents returning structured decisions, Postgres with pgvector as the system of record, tri-state autonomy: AUTO_TAG, QUEUE_REVIEW, REFUSE, and a HITL review queue."
+  },
+  {
+    "question": "What database does ReconAI use for retrieval?",
+    "expected": "Postgres with pgvector."
+  },
+  {
+    "question": "Who teaches the AIEngg cohort?",
+    "expected": "Tanishq Singh is the instructor. Gaurav Sen is the founder who designed the cohort."
+  },
+  {
+    "question": "How long is the AIEngg cohort and what does it cover?",
+    "expected": "8 weeks, 16 live classes. Topics by week: LLM basics and attention, RAG components, advanced RAG and evals, RAG architectures, agentic systems and tool calling, multi-agent systems, context engineering and memory, capstone project."
+  },
+  {
+    "question": "What is eBPF used for?",
+    "expected": "Running sandboxed programs in the Linux kernel for networking, observability, and security without modifying kernel source code."
+  }
+]
