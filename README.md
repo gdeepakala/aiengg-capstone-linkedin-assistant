@@ -1,6 +1,6 @@
 # LinkedIn Knowledge Assistant
 
-A multi-agent system that ingests LinkedIn posts from communities you follow into a vector database and lets you query them by meaning — not by keyword.
+A RAG pipeline with an LLM router that ingests LinkedIn posts from communities you follow into a vector database and lets you query them by meaning — not by keyword.
 
 **Problem:** LinkedIn posts surface once in your feed and disappear. There is no semantic search on LinkedIn. Google returns noise. This system captures posts at ingestion time and makes them queryable forever.
 
@@ -38,7 +38,7 @@ data/
   eval_questions.json   — 10 ground-truth Q&A pairs from raw LinkedIn posts
 evals/
   run_evals.py    — three-tier comparison: keyword vs RAG vs full pipeline
-main.py           — CLI menu (ingest / search / ingest resource)
+main.py           — natural language CLI with LLM router (classifies ingest vs retrieve)
 ```
 
 ---
@@ -80,17 +80,48 @@ python main.py
 
 ---
 
+## Reproducing the Demo
+
+After setup, ingest the sample data by pasting each of these at the `You:` prompt:
+
+**LinkedIn posts (via Serper search):**
+```
+site:linkedin.com AIEngg cohort capstone projects Gaurav Sen Tanishq Singh
+site:linkedin.com India AI hackathon judge Gaurav Sen Tanishq Singh Ambar Kashyap
+site:linkedin.com ebpf liz rice isovalent bill mulligan
+site:linkedin.com ebpf netflix cloudflare tutorial
+site:linkedin.com "Lavanya Mothilal" "family financial tracker"
+site:linkedin.com "Prabrisha" "Autonomous Job Application Agent"
+```
+
+**Direct resources (fetched in full — these drive the best answers):**
+```
+https://github.com/tamilarasu-ravi/recon-ai
+https://github.com/lizrice/learning-ebpf
+https://ebpf.io/what-is-ebpf/
+```
+
+Then ask questions:
+```
+You: what did Lavanya Mothilal build for her capstone?
+You: what architecture does ReconAI use?
+You: what is eBPF used for?
+You: who won the India AI Hackathon 2026?
+```
+
+---
+
 ## Evaluation
 
 Three approaches compared across 10 ground-truth questions written from raw LinkedIn post content (not from system output).
 
 | Approach | Metric | Score |
 |---|---|---|
-| Keyword Baseline | Precision@3 | 1.00 |
-| Vanilla RAG | Precision@3 | 1.00 |
-| Full Pipeline | LLM-as-judge (1–5) | 3.10 / 5 |
+| Keyword Baseline | Precision@3 | 0.90 |
+| Vanilla RAG | Precision@3 | 0.90 |
+| Full Pipeline | LLM-as-judge (1–5) | 3.80 / 5 |
 
-**Why P@3 = 1.00 for both baseline and RAG:** The relevant documents are retrieved correctly by both approaches — the bottleneck is not retrieval but answer quality. Keyword search and semantic search both surface the right documents. The full pipeline's LLM-as-judge score reveals where quality falls short.
+**Why P@3 ≈ 0.90 for both baseline and RAG:** The relevant documents are retrieved correctly by both approaches — the bottleneck is not retrieval but answer quality. Keyword search and semantic search both surface the right documents. The full pipeline's LLM-as-judge score reveals where quality falls short.
 
 **Per-question breakdown:**
 
@@ -99,24 +130,24 @@ Three approaches compared across 10 ground-truth questions written from raw Link
 | What architecture does ReconAI use? | 5/5 | GitHub README ingested |
 | What database does ReconAI use? | 5/5 | GitHub README ingested |
 | What is eBPF used for? | 5/5 | ebpf.io full page ingested |
+| What did Lavanya Mothilal build? | 5/5 | Targeted query with specific phrase |
+| What did Prabrisha Chattopadhyay build? | 5/5 | Targeted query with specific phrase |
 | Who won the India AI Hackathon 2026? | 4/5 | Correct winner, missing specifics |
-| Who won 1st prize in AIEngg capstone? | 3/5 | Correct but hedged |
-| What did Lavanya Mothilal build? | 2/5 | Snippet only, no repo link |
-| Who judged the India AI Hackathon 2026? | 2/5 | Cross-post synthesis failure |
+| Who won 1st prize in AIEngg capstone? | 3/5 | First-person post, no explicit self-naming |
+| How long is the AIEngg cohort? | 3/5 | Duration correct, week-by-week missing |
 | Who teaches the AIEngg cohort? | 2/5 | Instructor attribution failure |
-| How long is the AIEngg cohort? | 2/5 | Conflicting duration in posts |
-| What did Prabrisha Chattopadhyay build? | 1/5 | Post not in top 3 |
+| Who judged the India AI Hackathon 2026? | 1/5 | Cross-post synthesis failure |
 
-**Key finding:** Answer quality tracks source depth. Posts backed by a GitHub README or full web page score 5/5. Posts ingested from search snippets alone score 1–2/5. The system's ceiling is the quality of ingested content.
+**Key finding:** Answer quality tracks source depth. GitHub READMEs and full web pages → 5/5. Targeted Serper queries with specific phrases from the post → 5/5. Generic Serper queries → 1–3/5. Retrieval is not the bottleneck (P@3 ≈ 1.00 for most questions) — content depth is the ceiling.
 
 Run evals:
 ```bash
 python evals/run_evals.py
 ```
 
-**Why some questions score 5/5:** The highest-scoring answers came from directly ingested resources — the ReconAI GitHub README (~50K chars, fetched automatically when its link appeared in search results) and the ebpf.io what-is-ebpf page (22K chars, ingested via option 3). Questions backed by these rich documents scored 5/5. Questions relying only on Serper search snippets (150–300 chars) scored 1–2/5.
+**Why some questions score 5/5:** The highest-scoring answers came from directly ingested resources — the ReconAI GitHub README (~50K chars, fetched automatically when its link appeared in search results) and the ebpf.io what-is-ebpf page (22K chars, ingested directly). Targeted queries with specific phrases from the post also drove 5/5. Questions relying only on generic Serper snippets (150–300 chars) scored 1–3/5.
 
-**Direct resource ingestion (option 3)** accepts GitHub repos, YouTube videos, arXiv papers, PDFs, and web pages — and is the highest-leverage way to improve answer quality for a specific topic.
+**Direct resource ingestion** accepts GitHub repos, YouTube videos, arXiv papers, PDFs, and web pages — paste the URL at the `You:` prompt and the LLM router detects it automatically.
 
 ---
 
@@ -151,4 +182,5 @@ LinkedIn is login-walled. Serper snippets are ~150–300 characters. Posts witho
 - Structured output + validation (Pydantic)
 - LLM-as-judge evaluation
 - Three-tier eval comparison (keyword baseline → vanilla RAG → full pipeline)
-- Multi-agent ingestion pipeline (search → extract → validate → embed → store)
+- LLM router (intent classification — ingest vs retrieve — from natural language input)
+- Ingestion pipeline (search → extract → validate → embed → store)
