@@ -102,11 +102,14 @@ After setup, ingest the sample data by pasting each of these at the `You:` promp
 **LinkedIn posts (via Serper search):**
 ```
 site:linkedin.com AIEngg cohort capstone projects Gaurav Sen Tanishq Singh
+site:linkedin.com AIEngg cohort
 site:linkedin.com India AI hackathon judge Gaurav Sen Tanishq Singh Ambar Kashyap
 site:linkedin.com ebpf liz rice isovalent bill mulligan
 site:linkedin.com ebpf netflix cloudflare tutorial
+site:linkedin.com "Ambar Kashyap" KaviCare hackathon
 site:linkedin.com "Lavanya Mothilal" "family financial tracker"
 site:linkedin.com "Prabrisha" "Autonomous Job Application Agent"
+site:linkedin.com ReconAI LangGraph pgvector
 ```
 
 **Direct resources (fetched in full — these drive the best answers):**
