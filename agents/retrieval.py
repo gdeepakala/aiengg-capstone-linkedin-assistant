@@ -1,11 +1,12 @@
 import os
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
 import chromadb
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI()
+client = wrap_openai(OpenAI())
 chroma_client = chromadb.PersistentClient(path="chroma_db")
 collection = chroma_client.get_or_create_collection("linkedin_posts")
 

@@ -123,6 +123,7 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 | Resource fetching | Custom (requests + pypdf + youtube-transcript-api) | No LangChain dependency; full control over what gets stored |
 | Orchestration | LLM router (gpt-5.4-mini) | Rule-based routing can't distinguish ingest queries from retrieve questions — both are plain text. LLM router also cleans filler words before passing to search/retrieval. |
 | Baseline | Keyword search | Required to show retrieval improvement; established before adding complexity |
+| Observability | LangSmith | Traces every LLM call (router, extraction, answering) with latency and token counts — makes the pipeline observable and debuggable |
 
 ---
 

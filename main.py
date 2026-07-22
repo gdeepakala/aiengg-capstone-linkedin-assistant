@@ -4,10 +4,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
 from agents.ingestion import ingest, ingest_resource
 from agents.retrieval import retrieve
 
-client = OpenAI()
+client = wrap_openai(OpenAI())
 
 
 def route_intent(user_input):

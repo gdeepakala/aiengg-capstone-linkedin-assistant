@@ -13,19 +13,19 @@ A RAG pipeline with an LLM router that ingests LinkedIn posts from communities y
 ## Architecture
 
 ```
-Ingestion
-  User query (e.g. "site:linkedin.com AIEngg capstone")
-      → Serper.dev search → top 10 results
-      → For each result: follow GitHub/YouTube/arXiv/PDF links
-      → LLM (gpt-5.4-mini) extracts metadata → Pydantic validates
-      → text-embedding-3-small embeds content
-      → ChromaDB stores embedding + metadata + full text
+User input (any natural language or URL)
+  → LLM router (gpt-5.4-mini) classifies intent
 
-Retrieval
-  User question
-      → text-embedding-3-small embeds question
-      → ChromaDB semantic search → top 3 documents
-      → LLM (gpt-5.4-mini) generates grounded answer with citations
+  ingest + URL   → fetch resource directly (GitHub/YouTube/arXiv/PDF/web)
+  ingest + query → Serper.dev search → top 10 results
+                   → follow GitHub/YouTube/arXiv/PDF links in each result
+                   → LLM extracts metadata → Pydantic validates
+                   → text-embedding-3-small embeds content
+                   → ChromaDB stores embedding + metadata + full text
+
+  retrieve       → text-embedding-3-small embeds question
+                   → ChromaDB semantic search → top 3 documents
+                   → LLM (gpt-5.4-mini) generates grounded answer with citations
 ```
 
 ### Files
@@ -44,6 +44,8 @@ main.py           — natural language CLI with LLM router (classifies ingest vs
 ---
 
 ## Setup
+
+Tested on Ubuntu (WSL2) with Python 3.10.12.
 
 ```bash
 python -m venv venv
@@ -67,11 +69,22 @@ SERPER_API_KEY=...
 2. Dashboard → API Key → copy
 3. Add to `.env` as `SERPER_API_KEY=...`
 
+**LangSmith API Key** (optional — for tracing LLM calls)
+1. Go to smith.langchain.com → sign up
+2. Bottom left → Settings → API Keys → Create API Key
+3. Choose Personal Access Token, expiration Never → Create API Key → copy immediately
+4. Add to `.env` as `LANGCHAIN_API_KEY=ls__...`
+
 Your `.env` file should look like:
 ```
 OPENAI_API_KEY=sk-...
 SERPER_API_KEY=...
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=ls__...
+LANGCHAIN_PROJECT=linkedin-knowledge-base
 ```
+
+LangSmith traces every LLM call (router, extraction, retrieval) with latency and token counts. Tracing is optional — omit the three `LANGCHAIN_*` vars to disable it.
 
 Run:
 ```bash

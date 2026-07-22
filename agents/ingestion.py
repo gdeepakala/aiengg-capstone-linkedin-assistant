@@ -2,6 +2,7 @@ import os
 import json
 import requests
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
 from pydantic import BaseModel, ValidationError
 import chromadb
 
@@ -13,7 +14,7 @@ from agents.resources import (
     resolve_redirect,
 )
 
-client = OpenAI()
+client = wrap_openai(OpenAI())
 chroma_client = chromadb.PersistentClient(path="chroma_db")
 collection = chroma_client.get_or_create_collection("linkedin_posts")
 
