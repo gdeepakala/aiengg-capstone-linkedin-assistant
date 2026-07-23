@@ -4,6 +4,8 @@ A RAG pipeline with an LLM router that ingests LinkedIn posts from communities y
 
 **Demo:** [Watch the 5-minute walkthrough](https://www.loom.com/share/8c26f2ad8e794755acfb706a25467003) _(recorded before BM25+RRF hybrid search was added — the pipeline flow is identical, final score is 4.10/5)_
 
+**Design doc:** [DESIGN.md](DESIGN.md) — problem specificity, pipeline decisions, evaluation methodology, failure analysis, v2 agent loop findings.
+
 **Problem:** LinkedIn posts surface once in your feed and disappear. There is no semantic search on LinkedIn. Google returns noise. This system captures posts at ingestion time and makes them queryable forever.
 
 **Communities indexed:**
