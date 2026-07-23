@@ -96,7 +96,8 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 |---|---|---|
 | Keyword Baseline | Keyword count across all docs, return top 3 | Precision@3: 0.90 |
 | Vanilla RAG | ChromaDB semantic search, return raw docs | Precision@3: 0.90 |
-| Full Pipeline | Semantic search + LLM answer generation | LLM-as-judge avg: 3.80/5 |
+| Full Pipeline — v1 (single-pass) | Semantic search + LLM answer generation | LLM-as-judge avg: 3.60–3.80/5 |
+| Full Pipeline — v2 (agent loop) | Semantic search + LLM answer generation | LLM-as-judge avg: 3.50/5 |
 
 **LLM-as-judge rubric (1–5):**
 - 5: Correct, specific, cites source
@@ -126,6 +127,9 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 | Orchestration | LLM router (gpt-5.4-mini) | Rule-based routing can't distinguish ingest queries from retrieve questions — both are plain text. LLM router also cleans filler words before passing to search/retrieval. |
 | Baseline | Keyword search | Required to show retrieval improvement; established before adding complexity |
 | Observability | LangSmith | Traces every LLM call (router, extraction, answering) with latency and token counts — makes the pipeline observable and debuggable |
+| Chunking | Not implemented | P@3 = 0.90 — retrieval already finds the right documents. Failures are data access failures (LinkedIn wall), not retrieval precision failures. Chunking improves recall when the answer is buried in a long document; here the bottleneck is content depth, not chunk granularity. |
+| Hybrid search | Not implemented | BM25 + semantic would help for exact entity queries. However P@3 ≈ 0.90 on both keyword and semantic baselines — both approaches retrieve the right documents already. Adding hybrid complexity would not address the root cause failures. |
+| Embedding model | text-embedding-3-small (not large) | text-embedding-3-large offers marginal quality improvement at 6× the cost. Given retrieval is not the bottleneck, upgrading the embedding model would not improve eval scores. |
 
 ---
 
