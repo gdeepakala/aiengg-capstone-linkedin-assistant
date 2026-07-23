@@ -90,7 +90,8 @@ LangSmith traces every LLM call (router, extraction, retrieval) with latency and
 
 Run:
 ```bash
-python main.py
+python main_v1.py   # single-pass ingestion (recommended)
+python main_v2.py   # agent ingestion loop (depth 2)
 ```
 
 ---
@@ -103,13 +104,12 @@ After setup, ingest the sample data by pasting each of these at the `You:` promp
 ```
 site:linkedin.com AIEngg cohort capstone projects Gaurav Sen Tanishq Singh
 site:linkedin.com AIEngg cohort
-site:linkedin.com India AI hackathon judge Gaurav Sen Tanishq Singh Ambar Kashyap
+site:linkedin.com India AI hackathon judge Gaurav Sen Tanishq Singh
 site:linkedin.com ebpf liz rice isovalent bill mulligan
 site:linkedin.com ebpf netflix cloudflare tutorial
 site:linkedin.com "Ambar Kashyap" KaviCare hackathon
 site:linkedin.com "Lavanya Mothilal" "family financial tracker"
 site:linkedin.com "Prabrisha" "Autonomous Job Application Agent"
-site:linkedin.com ReconAI LangGraph pgvector
 ```
 
 **Direct resources (fetched in full — these drive the best answers):**
@@ -137,9 +137,12 @@ Three approaches compared across 10 ground-truth questions written from raw Link
 |---|---|---|
 | Keyword Baseline | Precision@3 | 0.90 |
 | Vanilla RAG | Precision@3 | 0.90 |
-| Full Pipeline | LLM-as-judge (1–5) | 3.80 / 5 |
+| Full Pipeline — v1 (single-pass) | LLM-as-judge (1–5) | 3.60–3.80 / 5 |
+| Full Pipeline — v2 (agent loop) | LLM-as-judge (1–5) | 3.50 / 5 |
 
 **Why P@3 ≈ 0.90 for both baseline and RAG:** The relevant documents are retrieved correctly by both approaches — the bottleneck is not retrieval but answer quality. Keyword search and semantic search both surface the right documents. The full pipeline's LLM-as-judge score reveals where quality falls short.
+
+**Why v2 scored lower than v1:** The agent loop re-fetched GitHub repos at depth 1 and stored duplicate documents with degraded metadata (`author=Unknown`). These duplicates ranked higher in retrieval on some queries, returning worse answers. The deeper finding: for this corpus, the bottleneck is data access (LinkedIn's login wall), not ingestion depth. See DESIGN.md for the full analysis.
 
 **Per-question breakdown:**
 

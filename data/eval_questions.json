@@ -29,11 +29,11 @@
   },
   {
     "question": "Who teaches the AIEngg cohort?",
-    "expected": "Tanishq Singh is the instructor. Gaurav Sen is the founder who designed the cohort."
+    "expected": "The current cohort (June–July 2026, 8 weeks) is run by Tanishq Singh. The previous cohort (Feb–June 2026, 16 weeks) was run by Gaurav Sen. Gaurav Sen is the founder of aiengg.dev."
   },
   {
     "question": "How long is the AIEngg cohort and what does it cover?",
-    "expected": "8 weeks, 16 live classes. Topics by week: LLM basics and attention, RAG components, advanced RAG and evals, RAG architectures, agentic systems and tool calling, multi-agent systems, context engineering and memory, capstone project."
+    "expected": "The current cohort (June–July 2026) is 8 weeks, 16 live classes. Topics by week: LLM basics and attention, RAG components, advanced RAG and evals, RAG architectures, agentic systems and tool calling, multi-agent systems, context engineering and memory, capstone project. The previous cohort (Feb–June 2026) was 16 weeks long."
   },
   {
     "question": "What is eBPF used for?",

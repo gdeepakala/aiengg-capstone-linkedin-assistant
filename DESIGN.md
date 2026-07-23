@@ -140,19 +140,42 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 
 ---
 
-## Future Work
+## v2 — Agent Ingestion Loop
 
-The current ingestion pipeline makes a single Serper pass — fixed steps, Python in control. The natural next step is an **agentic ingestion loop** where the LLM decides what to fetch next based on what it just found:
+After the v1 submission, the ingestion pipeline was extended to an **agentic loop**: after fetching each resource, the LLM inspects the content and decides which URLs are worth following next (GitHub repos, arXiv papers, YouTube videos). A BFS queue tracks depth — Serper results are depth 0, discovered links are depth 1+.
 
-1. Search `site:linkedin.com "isovalent" ebpf` → get 10 posts
-2. One post links to a YouTube talk → fetch transcript
-3. Transcript mentions a paper → fetch abstract
-4. Abstract cites a GitHub repo → fetch README
-5. LLM judges: "enough context" → stop
+**v1 eval score: 3.80/5 → v2 eval score: 3.50/5**
 
-With this pattern, a single query compounds into a deep knowledge base automatically. The user gives one seed query and gets back a rich, interconnected corpus — no manual ingestion of targeted queries needed.
+The loop did not improve scores. Understanding why is more instructive than the numbers.
 
-This is the key architectural difference between a **pipeline** (what we built) and an **agent** (what comes next). The pipeline is predictable and debuggable; the agent is more powerful but harder to control. For a personal knowledge base at this scale, the pipeline was the right starting point.
+### The real ceiling: LinkedIn via Google Search
+
+The ingestion pipeline uses Serper (Google Search API) because LinkedIn blocks all unauthenticated access. This introduces a structural depth limit that no amount of pipeline sophistication can overcome:
+
+| What you want | What Serper gives you |
+|---|---|
+| Full post body (~500–2000 words) | 150–300 char Google snippet |
+| lnkd.in shortlinks in post body | Invisible — snippet truncated before the link |
+| YouTube videos embedded in post | Invisible — only visible inside the post |
+| Architecture details in post | Invisible — behind the login wall |
+
+Every interesting piece of content in a LinkedIn post — the links, the code snippets, the architecture descriptions — lives in the post body. Google indexes the post but only the snippet is public. The agent loop can only follow URLs it can see. It cannot see inside LinkedIn posts.
+
+### Why v2 hurt scores
+
+The agent loop re-fetched GitHub repos at depth 1 (discovered inside Serper snippets) and stored them a second time — but with degraded metadata. At depth 0, a Serper result includes title and snippet; the LLM extracts `author=Tamilarasu Ravi`, `topic=ReconAI`. At depth 1, the system only has the raw URL; the LLM stores `author=Unknown`, `topic=Financial Operations Platform`. ChromaDB now holds two copies: one with good metadata and one with bad. The bad copy ranks higher on some queries because it contains more raw text — pulling retrieval in the wrong direction.
+
+### What would actually help
+
+| Failure | Fix | Category |
+|---|---|---|
+| LinkedIn post body inaccessible | Proxycurl (paid) or manual copy-paste at capture time | Data access |
+| lnkd.in links invisible | Paste the shortlink directly — system resolves it | Data access |
+| Long documents (50k README) embedded as one vector | Chunk into 500-char pieces, embed each | Advanced RAG |
+| Exact names (pgvector, Prabrisha) missed by semantic search | Hybrid search: BM25 + semantic | Advanced RAG |
+| Judge list split across two posts | Increase n_results; merge on aggregation signals | Retrieval design |
+
+The data access problems cannot be solved by better retrieval. The RAG improvements (chunking, hybrid search) would raise scores on questions already backed by ingested content — but the majority of failures in this eval are data access failures, not retrieval failures.
 
 ---
 

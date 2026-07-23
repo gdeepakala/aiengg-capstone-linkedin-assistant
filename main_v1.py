@@ -42,7 +42,7 @@ Return JSON only: {"intent": "ingest" or "retrieve", "query": "<clean query or U
 
 
 def main():
-    print("LinkedIn Knowledge Base")
+    print("LinkedIn Knowledge Base — v1 (single-pass ingestion)")
     print("Ask a question or say what to save. Keep it simple.\n")
     print("  site:linkedin.com AIEngg capstone Lavanya    — save posts")
     print("  https://github.com/owner/repo                — save a resource")
@@ -67,7 +67,7 @@ def main():
                 ingest_resource(query)
             else:
                 print(f"\n[routing to search ingestion: {query}]")
-                ingest(query)
+                ingest(query, max_depth=0)
         elif intent == "retrieve":
             print(f"\n[routing to retrieval]")
             answer = retrieve(query)

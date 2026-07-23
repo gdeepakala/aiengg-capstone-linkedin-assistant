@@ -135,17 +135,77 @@ def _store(resource, item, resource_text=""):
     print(f"  stored: {resource.author} — {resource.topic}")
 
 
-def ingest(query):
-    print(f"searching: {query}")
+def _extract_followup_urls(resource_text, visited):
+    """Ask LLM which URLs in fetched content are worth following for deeper context."""
+    if not resource_text.strip():
+        return []
+    prompt = f"""You are building a knowledge base about AI engineering and eBPF.
+
+Identify URLs in this content worth fetching for more technical depth.
+Only include: GitHub repos, arXiv papers, YouTube videos.
+Skip: linkedin.com, twitter.com, social media, login pages, generic homepages.
+
+Content:
+{resource_text[:3000]}
+
+Return JSON: {{"urls": ["url1", "url2"]}}
+At most 3 URLs. Return {{"urls": []}} if nothing is worth following."""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-5.4-mini",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+        )
+        data = json.loads(response.choices[0].message.content)
+        return [
+            u for u in data.get("urls", [])
+            if u not in visited and is_supported_resource(u)
+        ]
+    except Exception:
+        return []
+
+
+def ingest(query, max_depth=2):
+    """Agent ingestion loop — follows links discovered inside fetched resources up to max_depth."""
+    print(f"searching: {query} [agent loop, max depth {max_depth}]")
     items = _search(query)
     print(f"found {len(items)} results")
-    for item in items:
+
+    visited = set()
+    # queue entries: (item_dict, depth, fetch_directly)
+    # depth 0 = Serper result; depth 1+ = URL discovered inside a fetched resource
+    queue = [(item, 0, False) for item in items]
+
+    while queue:
+        item, depth, fetch_directly = queue.pop(0)
+        url = item.get("link", "")
+        if not url or url in visited:
+            continue
+        visited.add(url)
+
         try:
-            resource_text = _gather_resources(item)
+            if fetch_directly:
+                kind, text = fetch_resource(url)
+                if not text.strip():
+                    continue
+                print(f"  [depth {depth}] fetched {kind}: {url[:70]}")
+                resource_text = f"[{kind}] {url}\n{text.strip()[:MAX_CONTENT_CHARS]}"
+                item = {"title": url, "snippet": text.strip()[:300], "link": url}
+            else:
+                resource_text = _gather_resources(item)
+
             resource = _extract(item, resource_text)
             _store(resource, item, resource_text)
+
+            if depth < max_depth and resource_text:
+                followups = _extract_followup_urls(resource_text, visited)
+                for fu in followups:
+                    print(f"  → queuing depth {depth+1}: {fu[:70]}")
+                    queue.append(({"link": fu, "title": fu, "snippet": ""}, depth + 1, True))
+
         except (ValidationError, Exception) as e:
-            print(f"  skipped {item.get('link', '?')[:60]}: {e}")
+            print(f"  skipped {url[:60]}: {e}")
+
     print("done.")
 
 
