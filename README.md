@@ -2,7 +2,7 @@
 
 A RAG pipeline with an LLM router that ingests LinkedIn posts from communities you follow into a vector database and lets you query them by meaning — not by keyword.
 
-**Demo:** [Watch the 5-minute walkthrough](https://www.loom.com/share/8c26f2ad8e794755acfb706a25467003)
+**Demo:** [Watch the 5-minute walkthrough](https://www.loom.com/share/8c26f2ad8e794755acfb706a25467003) _(recorded before BM25+RRF hybrid search was added — the pipeline flow is identical, final score is 4.10/5)_
 
 **Problem:** LinkedIn posts surface once in your feed and disappear. There is no semantic search on LinkedIn. Google returns noise. This system captures posts at ingestion time and makes them queryable forever.
 
@@ -26,7 +26,9 @@ User input (any natural language or URL)
                    → ChromaDB stores embedding + metadata + full text
 
   retrieve       → text-embedding-3-small embeds question
-                   → ChromaDB semantic search → top 3 documents
+                   → Dense: ChromaDB semantic search → top 10 candidates
+                   → Sparse: BM25 keyword search → top 10 candidates
+                   → RRF merges both lists → top 5 documents
                    → LLM (gpt-5.4-mini) generates grounded answer with citations
 ```
 
@@ -136,35 +138,59 @@ Three approaches compared across 10 ground-truth questions written from raw Link
 
 | Approach | Metric | Score |
 |---|---|---|
-| Keyword Baseline | Precision@3 | 0.90 |
-| Vanilla RAG | Precision@3 | 0.90 |
-| Full Pipeline — v1 (single-pass) | LLM-as-judge (1–5) | 3.60–3.80 / 5 |
-| Full Pipeline — v2 (agent loop) | LLM-as-judge (1–5) | 3.50 / 5 |
+| Keyword Baseline | Precision@3 | 0.90 → 1.00* |
+| Vanilla RAG | Precision@3 | 0.90 → 1.00* |
+| Full Pipeline — v1 (semantic only) | LLM-as-judge (1–5) | 3.60–3.80 / 5 |
+| Full Pipeline — v1 + hybrid search | LLM-as-judge (1–5) | 4.10 / 5 |
+| Full Pipeline — v2 (agent loop, semantic only) | LLM-as-judge (1–5) | 3.50 / 5 |
+| Full Pipeline — v2 + hybrid search | LLM-as-judge (1–5) | 3.90 / 5 |
 
-**Why P@3 ≈ 0.90 for both baseline and RAG:** The relevant documents are retrieved correctly by both approaches — the bottleneck is not retrieval but answer quality. Keyword search and semantic search both surface the right documents. The full pipeline's LLM-as-judge score reveals where quality falls short.
+_* 0.90 on the standard corpus; rises to 1.00 after targeted ingestion (Lavanya's own award post added directly)._
+
+**Why P@3 starts at 0.90:** The standard corpus misses one document — Lavanya Mothilal's winning post was indexed under Gaurav Sen's name due to a repost attribution bug. After adding a targeted ingestion query that surfaces her own post, P@3 = 1.00. In both states, retrieval is not the bottleneck — the LLM-as-judge score is where quality falls short.
 
 **Why v2 scored lower than v1:** The agent loop re-fetched GitHub repos at depth 1 and stored duplicate documents with degraded metadata (`author=Unknown`). These duplicates ranked higher in retrieval on some queries, returning worse answers. The deeper finding: for this corpus, the bottleneck is data access (LinkedIn's login wall), not ingestion depth. See DESIGN.md for the full analysis.
 
-**Per-question breakdown:**
+**Per-question breakdown (v1 + hybrid search, final run):**
 
 | Question | Score | Note |
 |---|---|---|
-| What architecture does ReconAI use? | 5/5 | GitHub README ingested |
+| Who won 1st prize in AIEngg capstone? | 5/5 | Targeted ingestion of Lavanya's own award post |
+| What architecture does ReconAI use? | 5/5 | GitHub README ingested in full |
 | What is eBPF used for? | 5/5 | ebpf.io full page ingested |
 | What did Prabrisha Chattopadhyay build? | 5/5 | Targeted query with specific phrase |
-| Who won the India AI Hackathon 2026? | 4/5 | Correct winner, missing specifics |
-| Who judged the India AI Hackathon 2026? | 4/5 | Partial — one judge named, full list missing |
-| What did Lavanya Mothilal build? | 4/5 | Topic correct, missing Google Sheets + deterministic rules |
-| What database does ReconAI use? | 4/5 | pgvector correct, missing Postgres qualifier |
-| Who teaches the AIEngg cohort? | 2/5 | Instructor attribution failure |
-| How long is the AIEngg cohort? | 2/5 | Conflicting cohort lengths in corpus |
-| Who won 1st prize in AIEngg capstone? | 1/5 | Lavanya's win not surfaced by retrieval |
+| What database does ReconAI use? | 5/5 | pgvector + Postgres correct |
+| Who won the India AI Hackathon 2026? | 4/5 | Correct winner, missing health memory details |
+| Who teaches the AIEngg cohort? | 4/5 | BM25 matched "Tanishq Singh" by name |
+| Who judged the India AI Hackathon 2026? | 4/5 | Tanishq Singh identified; full judge list split across posts |
+| How long is the AIEngg cohort? | 3/5 | 16-week answer; current 8-week cohort underweighted |
+| What did Lavanya Mothilal build? | 1/5 | Ingestion-order bias — award post outranks project detail post |
 
-**Key finding:** Answer quality tracks source depth. GitHub READMEs and full web pages → 5/5. Targeted Serper queries with specific phrases from the post → 5/5. Generic Serper queries → 1–3/5. Retrieval is not the bottleneck (P@3 ≈ 1.00 for most questions) — content depth is the ceiling.
+**Key finding:** Answer quality tracks source depth. GitHub READMEs and full web pages → 5/5. Targeted Serper queries with specific phrases → 5/5. Generic Serper snippets → 1–3/5. Retrieval is not the bottleneck (P@3 = 1.00) — content depth is the ceiling.
 
 Run evals:
 ```bash
 python evals/run_evals.py
+```
+
+**v1 + hybrid search (final):**
+
+![v1 + hybrid search eval](docs/eval_v1_hybrid.png)
+
+```
+Keyword Baseline — Precision@3: 1.00
+Vanilla RAG      — Precision@3: 1.00
+Full Pipeline    — LLM-as-judge avg: 4.10/5
+```
+
+**v2 + hybrid search:**
+
+![v2 + hybrid search eval](docs/eval_v2_hybrid.png)
+
+```
+Keyword Baseline — Precision@3: 0.90
+Vanilla RAG      — Precision@3: 0.90
+Full Pipeline    — LLM-as-judge avg: 3.90/5
 ```
 
 **Why some questions score 5/5:** The highest-scoring answers came from directly ingested resources — the ReconAI GitHub README (~50K chars, fetched automatically when its link appeared in search results) and the ebpf.io what-is-ebpf page (22K chars, ingested directly). Targeted queries with specific phrases from the post also drove 5/5. Questions relying only on generic Serper snippets (150–300 chars) scored 1–3/5.
@@ -180,17 +206,28 @@ Gaurav Sen reposted Lavanya Mothilal's winning post. Google titles the result "G
 
 **Fix:** Detect reshare/repost patterns in the snippet before extracting author. Phrases like "reposted this" or "shared this" signal the author is not the original creator.
 
-### 2. Cross-post synthesis failure
+### 2. Ingestion-order bias (affects multiple questions)
+When multiple documents cover the same entity, the most recently ingested one tends to dominate retrieval. This pattern appeared across three questions:
+
+- **Who teaches the AIEngg cohort?** — Gaurav Sen's cohort posts were ingested first; Tanishq Singh's current-cohort post was ingested later. Whichever was ingested last becomes the top result. The correct answer is "Tanishq Singh teaches the current cohort; Gaurav Sen ran the previous one" — a synthesis across both posts that the system never produces.
+- **Who won 1st prize / What did Lavanya build?** — The award post ("1st Prize") was ingested after the project post ("family financial tracker"). For "Who won?", the award post wins. For "What did she build?", the award post still wins — but has no project detail — returning a 1/5 answer.
+- **Who judged the hackathon?** — Only Tanishq Singh's judging post surfaces; Gaurav Sen and the other five judges are in a separate post ingested at a different time.
+
+The retrieval returns `n_results=5` but when multiple docs about the same entity are in the corpus, the recency-biased one occupies the top slot and the LLM anchors on it rather than synthesizing across all five.
+
+**Fix:** Retrieve more candidates and explicitly prompt the LLM to synthesize across all returned posts rather than cite only the top one. A metadata-filtered pass (group by author first, then rank within group) would also prevent one post from crowding out another about the same person.
+
+### 3. Cross-post synthesis failure
 The full judge list for the India AI Hackathon 2026 is split across two posts — Tanishq Singh's judging post and Ambar Kashyap's winner post. The retrieval system returns the most semantically similar document, missing the other. Answer: "Tanishq Singh" instead of all 7 judges.
 
 **Fix:** Increase `n_results` from 3 to 5, or add post-retrieval merging when the question contains aggregation signals ("who all", "list of", "full list").
 
-### 3. Instructor attribution failure
+### 4. Instructor attribution failure
 General AIEngg cohort posts consistently mention Gaurav Sen by name. The specific registration post listing "Instructor: Tanishq Singh" ranks lower semantically. The system answers "Gaurav Sen teaches" when Tanishq Singh is the listed instructor.
 
 **Fix:** During ingestion, extract structured role fields (instructor, founder, TA) explicitly and store them as separate metadata fields for direct lookup.
 
-### 4. Thin snippet answers
+### 5. Thin snippet answers
 LinkedIn is login-walled. Serper snippets are ~150–300 characters. Posts without a linked GitHub repo or paper yield surface-level answers. Dwaipayan Gupta's certificate post had no project link — zero technical detail available.
 
 **Fix:** Auto-run a secondary search per author ("`NAME AIEngg capstone github`") during ingestion to find their project repo and ingest the README.

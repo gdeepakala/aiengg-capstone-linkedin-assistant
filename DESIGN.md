@@ -45,8 +45,10 @@ User query (e.g. "site:linkedin.com AIEngg capstone")
 
 ```
 User question
-  → text-embedding-3-small embeds question (1536 dimensions)
-  → ChromaDB cosine similarity search → top 3 documents
+  → Dense: text-embedding-3-small embeds question (1536 dimensions)
+            → ChromaDB cosine similarity search → top 10 candidates
+  → Sparse: BM25Okapi over full corpus → top 10 candidates
+  → RRF (Reciprocal Rank Fusion, k=60) merges both lists → top 5
   → Build context: author + topic + document text + URL per result
   → gpt-5.4-mini generates grounded answer with citations
 ```
@@ -81,7 +83,9 @@ The three components behind the router:
 - Resolves shortlinks before dispatch; skips linkedin.com (login-walled)
 
 **Retrieval** (`agents/retrieval.py`)
-- ChromaDB cosine similarity → top 3 documents
+- Dense: ChromaDB cosine similarity → top 10 candidates
+- Sparse: BM25 keyword search over full corpus → top 10 candidates
+- RRF (Reciprocal Rank Fusion, k=60) merges both → top 5 documents
 - LLM generates grounded answer with citations
 
 No LangGraph or orchestration framework used — complexity was chosen to match the problem.
@@ -96,8 +100,10 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 |---|---|---|
 | Keyword Baseline | Keyword count across all docs, return top 3 | Precision@3: 0.90 |
 | Vanilla RAG | ChromaDB semantic search, return raw docs | Precision@3: 0.90 |
-| Full Pipeline — v1 (single-pass) | Semantic search + LLM answer generation | LLM-as-judge avg: 3.60–3.80/5 |
-| Full Pipeline — v2 (agent loop) | Semantic search + LLM answer generation | LLM-as-judge avg: 3.50/5 |
+| Full Pipeline — v1 (semantic only) | Semantic search + LLM answer generation | LLM-as-judge avg: 3.60–3.80/5 |
+| Full Pipeline — v1 + hybrid search | BM25 + semantic + RRF + LLM answer generation | LLM-as-judge avg: 4.10/5 |
+| Full Pipeline — v2 (agent loop, semantic only) | Semantic search + LLM answer generation | LLM-as-judge avg: 3.50/5 |
+| Full Pipeline — v2 + hybrid search | BM25 + semantic + RRF + LLM answer generation | LLM-as-judge avg: 3.90/5 |
 
 **LLM-as-judge rubric (1–5):**
 - 5: Correct, specific, cites source
@@ -127,8 +133,8 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 | Orchestration | LLM router (gpt-5.4-mini) | Rule-based routing can't distinguish ingest queries from retrieve questions — both are plain text. LLM router also cleans filler words before passing to search/retrieval. |
 | Baseline | Keyword search | Required to show retrieval improvement; established before adding complexity |
 | Observability | LangSmith | Traces every LLM call (router, extraction, answering) with latency and token counts — makes the pipeline observable and debuggable |
-| Chunking | Not implemented | P@3 = 0.90 — retrieval already finds the right documents. Failures are data access failures (LinkedIn wall), not retrieval precision failures. Chunking improves recall when the answer is buried in a long document; here the bottleneck is content depth, not chunk granularity. |
-| Hybrid search | Not implemented | BM25 + semantic would help for exact entity queries. However P@3 ≈ 0.90 on both keyword and semantic baselines — both approaches retrieve the right documents already. Adding hybrid complexity would not address the root cause failures. |
+| Chunking | Not implemented | P@3 = 0.90 — retrieval finds the right documents. Most failures are data access failures (LinkedIn wall), not retrieval precision failures. Note: long documents (50k+ GitHub READMEs) are stored as single vectors — chunking would improve answer coverage within those documents. However this was lower priority than fixing missing data; the highest-scoring answers (ReconAI, eBPF) came from those same un-chunked long documents, so the current approach works well enough for the corpus size. |
+| Hybrid search | Implemented — BM25 + semantic + RRF | P@3 ≈ 0.90 on both baselines showed retrieval was not the main bottleneck, but exact name matching (Tanishq Singh, pgvector) was silently failing inside the LLM answer step. BM25 fixed those cases: "Who teaches" improved 2/5 → 4/5. Overall score: 3.60–3.80/5 → 4.10/5. |
 | Embedding model | text-embedding-3-small (not large) | text-embedding-3-large offers marginal quality improvement at 6× the cost. Given retrieval is not the bottleneck, upgrading the embedding model would not improve eval scores. |
 
 ---
@@ -139,6 +145,7 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 |---|---|---|
 | Repost attribution | Gaurav Sen reposted Lavanya Mothilal's winning post. Google titles the result "Gaurav Sen's Post"; the snippet says "My capstone project won 1st Prize." The LLM sees the title name and stores `author=Gaurav Sen`. Added prompt instruction to detect first-person content that doesn't match the title name. Reliable fix: targeted query `site:linkedin.com "Lavanya Mothilal" "family financial tracker"` surfaces Lavanya's own post where title is "Lavanya Mothilal's Post." | Prompt-level reshare detection + targeted ingestion query |
 | Cross-post synthesis | Answer spans multiple posts; top-1 retrieved | Increase n_results; merge on aggregation signals |
+| Ingestion-order bias | When multiple documents cover the same entity, the most recently ingested one dominates retrieval. Observed across three eval questions: (1) "Who teaches?" — Gaurav Sen vs Tanishq Singh posts flip depending on ingestion order; the correct answer requires synthesizing both. (2) "Who won 1st prize?" vs "What did Lavanya build?" — the award post and project post compete; whichever was ingested last wins both queries. (3) "Who judged?" — only the last-ingested judge post surfaces; the others are invisible. The retrieval returns n_results=5 but the LLM anchors on the top-ranked doc rather than synthesizing across all five. | Retrieve more candidates and explicitly prompt the LLM to merge across all returned posts; or use metadata-filtered retrieval (group by author, rank within group) to prevent one post crowding out another about the same person |
 | Instructor attribution | Role detail in low-ranked post | Extract role fields as explicit metadata |
 | Thin snippet answers | No linked repo in post | Auto-search per author for GitHub repo |
 
@@ -148,9 +155,9 @@ Three approaches compared across 10 ground-truth questions. Questions were writt
 
 After the v1 submission, the ingestion pipeline was extended to an **agentic loop**: after fetching each resource, the LLM inspects the content and decides which URLs are worth following next (GitHub repos, arXiv papers, YouTube videos). A BFS queue tracks depth — Serper results are depth 0, discovered links are depth 1+.
 
-**v1 eval score: 3.80/5 → v2 eval score: 3.50/5**
+**v1 semantic: 3.60–3.80/5 → v2 semantic: 3.50/5 → v1 + hybrid: 4.10/5 → v2 + hybrid: 3.90/5**
 
-The loop did not improve scores. Understanding why is more instructive than the numbers.
+Hybrid search (BM25 + RRF) lifted both versions — but v1 still beats v2 by 0.20 even after the retrieval improvement. The ingestion quality gap persists: the agent loop's duplicate documents with degraded metadata continue to drag retrieval down regardless of the ranking strategy.
 
 ### The real ceiling: LinkedIn via Google Search
 
@@ -181,10 +188,3 @@ The agent loop re-fetched GitHub repos at depth 1 (discovered inside Serper snip
 
 The data access problems cannot be solved by better retrieval. The RAG improvements (chunking, hybrid search) would raise scores on questions already backed by ingested content — but the majority of failures in this eval are data access failures, not retrieval failures.
 
----
-
-## Getting API Keys
-
-**OpenAI:** platform.openai.com → API Keys → Create new secret key → `OPENAI_API_KEY=sk-...`
-
-**Serper:** serper.dev → Sign up (2,500 free searches) → Dashboard → API Key → `SERPER_API_KEY=...`

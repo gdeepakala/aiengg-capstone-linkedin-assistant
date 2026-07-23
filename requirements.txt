@@ -7,4 +7,5 @@ pypdf==6.14.2
 youtube-transcript-api==1.2.4
 defusedxml==0.7.1
 langsmith==0.10.9
+rank_bm25==0.2.2
 
