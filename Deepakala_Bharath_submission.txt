@@ -1,0 +1,10 @@
+Name: Deepakala Bharath
+
+GitHub: https://github.com/gdeepakala/aiengg-capstone-linkedin-assistant
+Demo:   https://www.loom.com/share/8c26f2ad8e794755acfb706a25467003
+
+In the repo:
+- README.md  — architecture, setup, evaluation results, failure analysis
+- DESIGN.md  — problem specificity, pipeline decisions, retrieval design, decision reasoning
+
+Eval score: 4.10/5 (v1 + BM25 hybrid search)
