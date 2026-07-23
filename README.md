@@ -2,7 +2,7 @@
 
 A RAG pipeline with an LLM router that ingests LinkedIn posts from communities you follow into a vector database and lets you query them by meaning — not by keyword.
 
-**Demo:** [Watch the 3-minute walkthrough](https://loom.com/share/a71fdeb4f6a34091997321a3aaa7b70a)
+**Demo:** [Watch the 5-minute walkthrough](https://www.loom.com/share/8c26f2ad8e794755acfb706a25467003)
 
 **Problem:** LinkedIn posts surface once in your feed and disappear. There is no semantic search on LinkedIn. Google returns noise. This system captures posts at ingestion time and makes them queryable forever.
 
