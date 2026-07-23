@@ -40,7 +40,8 @@ data/
   eval_questions.json   — 10 ground-truth Q&A pairs from raw LinkedIn posts
 evals/
   run_evals.py    — three-tier comparison: keyword vs RAG vs full pipeline
-main.py           — natural language CLI with LLM router (classifies ingest vs retrieve)
+main_v1.py        — single-pass ingestion (recommended, scores 3.60–3.80/5)
+main_v2.py        — agent ingestion loop depth 2 (scores 3.50/5)
 ```
 
 ---
@@ -149,15 +150,15 @@ Three approaches compared across 10 ground-truth questions written from raw Link
 | Question | Score | Note |
 |---|---|---|
 | What architecture does ReconAI use? | 5/5 | GitHub README ingested |
-| What database does ReconAI use? | 5/5 | GitHub README ingested |
 | What is eBPF used for? | 5/5 | ebpf.io full page ingested |
-| What did Lavanya Mothilal build? | 5/5 | Targeted query with specific phrase |
 | What did Prabrisha Chattopadhyay build? | 5/5 | Targeted query with specific phrase |
 | Who won the India AI Hackathon 2026? | 4/5 | Correct winner, missing specifics |
-| Who won 1st prize in AIEngg capstone? | 3/5 | First-person post, no explicit self-naming |
-| How long is the AIEngg cohort? | 3/5 | Duration correct, week-by-week missing |
+| Who judged the India AI Hackathon 2026? | 4/5 | Partial — one judge named, full list missing |
+| What did Lavanya Mothilal build? | 4/5 | Topic correct, missing Google Sheets + deterministic rules |
+| What database does ReconAI use? | 4/5 | pgvector correct, missing Postgres qualifier |
 | Who teaches the AIEngg cohort? | 2/5 | Instructor attribution failure |
-| Who judged the India AI Hackathon 2026? | 1/5 | Cross-post synthesis failure |
+| How long is the AIEngg cohort? | 2/5 | Conflicting cohort lengths in corpus |
+| Who won 1st prize in AIEngg capstone? | 1/5 | Lavanya's win not surfaced by retrieval |
 
 **Key finding:** Answer quality tracks source depth. GitHub READMEs and full web pages → 5/5. Targeted Serper queries with specific phrases from the post → 5/5. Generic Serper queries → 1–3/5. Retrieval is not the bottleneck (P@3 ≈ 1.00 for most questions) — content depth is the ceiling.
 
